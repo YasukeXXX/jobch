@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strings"
 
 	"github.com/nlopes/slack"
 	"github.com/nlopes/slack/slackevents"
@@ -16,6 +17,7 @@ import (
 var api = slack.New(os.Getenv("CONFIG_SLACK_OAUTH_TOKEN"))
 
 func main() {
+	jobHandler := JobHandler{api}
 	http.HandleFunc("/events", func(w http.ResponseWriter, r *http.Request) {
 		buf := new(bytes.Buffer)
 		buf.ReadFrom(r.Body)
@@ -42,6 +44,18 @@ func main() {
 			case *slackevents.AppMentionEvent:
 				if match := regexp.MustCompile(`([0-9a-zA-Z-]+) を実行していただけませんでしょうか`).FindAllStringSubmatch(ev.Text, -1); match != nil {
 					api.PostMessage(ev.Channel, slack.MsgOptionText(fmt.Sprintf("仕方ありませんね。\n%s を実行します。", match[0][1]), false))
+				}
+
+				if match := regexp.MustCompile(`^<@[A-Z\d]+> ([0-9a-zA-Z-/_.]+) (.+)$`).FindAllStringSubmatch(ev.Text, -1); match != nil {
+					url := match[0][1]
+					commands := strings.Split(match[0][2], " ")
+					api.PostMessage(ev.Channel, slack.MsgOptionText(fmt.Sprintf("仕方ありませんね。\n%s を実行します。", match[0][1]), false))
+					job, err := jobHandler.Execute(url, commands, ev.Channel)
+					if err != nil {
+						blockObject := slack.NewTextBlockObject("mrkdwn", err.Error(), false, false)
+						api.PostMessage(ev.Channel, slack.MsgOptionBlocks(slack.NewSectionBlock(blockObject, nil, nil)))
+					}
+					api.PostMessage(ev.Channel, slack.MsgOptionText(fmt.Sprintf("ジョブを開始しました\nName: %s", job.Name), false))
 				}
 			}
 		}
