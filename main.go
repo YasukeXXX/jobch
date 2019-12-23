@@ -42,11 +42,9 @@ func main() {
 			innerEvent := eventsAPIEvent.InnerEvent
 			switch ev := innerEvent.Data.(type) {
 			case *slackevents.AppMentionEvent:
-				if match := regexp.MustCompile(`([0-9a-zA-Z-]+) を実行していただけませんでしょうか`).FindAllStringSubmatch(ev.Text, -1); match != nil {
-					api.PostMessage(ev.Channel, slack.MsgOptionText(fmt.Sprintf("仕方ありませんね。\n%s を実行します。", match[0][1]), false))
-				}
-
-				if match := regexp.MustCompile(`^<@[A-Z\d]+> ([0-9a-zA-Z-/_.]+) (.+)$`).FindAllStringSubmatch(ev.Text, -1); match != nil {
+				fmt.Printf("[INFO] %s\n", ev.Text)
+				if match := regexp.MustCompile(`\n*<([0-9a-zA-Z-/_.:]+)> (.+)$`).FindAllStringSubmatch(ev.Text, -1); match != nil {
+					fmt.Println("Event is triggered")
 					url := match[0][1]
 					commands := strings.Split(match[0][2], " ")
 					api.PostMessage(ev.Channel, slack.MsgOptionText(fmt.Sprintf("仕方ありませんね。\n%s を実行します。", match[0][1]), false))
@@ -54,6 +52,7 @@ func main() {
 					if err != nil {
 						blockObject := slack.NewTextBlockObject("mrkdwn", err.Error(), false, false)
 						api.PostMessage(ev.Channel, slack.MsgOptionBlocks(slack.NewSectionBlock(blockObject, nil, nil)))
+						return
 					}
 					api.PostMessage(ev.Channel, slack.MsgOptionText(fmt.Sprintf("ジョブを開始しました\nName: %s", job.Name), false))
 				}
